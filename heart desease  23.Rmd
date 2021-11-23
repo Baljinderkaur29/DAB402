@@ -1,0 +1,461 @@
+---
+title: "Capstone Project"
+output: html_notebook
+---
+<center>  <h3> Group 9 </h2> </center>
+---
+
+### Include required libraries
+
+```{r}
+# For decision tree
+install.packages("party")
+library("sandwich")
+library("party")
+
+# For colorpanel
+install.packages("gplots")
+library("gplots")
+
+# For KNN Model
+install.packages('class')
+library("class")
+install.packages("gmodels")
+library("gdata")
+library("gmodels")
+
+
+# For plot confusion matrix
+install.packages("cvms")
+library(cvms)
+library(tibble)
+
+# For random Forest
+install.packages("randomForest")
+library(randomForest)
+
+# For Feature selection
+install.packages("MASS")
+install.packages("leaps")
+library(MASS) # for stepwise regression like forward selection and backward deletion
+library(leaps) # for subsetting or all subset regression
+```
+
+### Include CSV file
+
+```{r}
+heart_dataset <- read.csv("heart.csv", stringsAsFactors = FALSE,header = TRUE)
+heart_dataset
+View(heart_dataset)
+```
+
+### Check Data types
+
+```{r}
+sapply(heart_dataset,class)
+```
+
+### View Summary of Dataset
+
+```{r}
+summary(heart_dataset)
+```
+
+### Get First 6 rows data
+
+```{r}
+head(heart_dataset)
+```
+
+### Check sum of null values
+
+```{r}
+sum(is.na(heart_dataset))
+```
+```{r}
+which(is.na(heart_dataset))
+```
+
+### BoxPlot
+
+```{r}
+boxplot(heart_dataset$Age,horizontal = TRUE)
+boxplot(heart_dataset$RestingBP,horizontal = TRUE)
+boxplot(heart_dataset$Cholesterol,horizontal = TRUE)
+boxplot(heart_dataset$MaxHR,horizontal = TRUE)
+boxplot(heart_dataset$Oldpeak,horizontal = TRUE)
+```
+> Remove outliers of RestingBP
+
+```{r}
+nrow(heart_dataset)
+Q1_RestingBP <- quantile(heart_dataset$RestingBP, .25)
+Q3_RestingBP <- quantile(heart_dataset$RestingBP, .75)
+IQR_RestingBP <- IQR(heart_dataset$RestingBP)
+
+heart_dataset$Outlier <- (heart_dataset$RestingBP < (Q1_RestingBP - 1.5*IQR_RestingBP) | heart_dataset$RestingBP > (Q3_RestingBP + 1.5*IQR_RestingBP))
+
+avg = mean(heart_dataset$RestingBP[!heart_dataset$Outlier])
+
+heart_dataset$RestingBP[heart_dataset$Outlier] = avg
+
+#heart_dataset <- subset(heart_dataset, heart_dataset$RestingBP > (Q1_RestingBP - 1.5*IQR_RestingBP) & heart_dataset$RestingBP< (Q3_RestingBP + 1.5*IQR_RestingBP))
+
+boxplot(heart_dataset$RestingBP,horizontal = TRUE)
+```
+
+> Remove outliers of Cholesterol
+
+```{r}
+nrow(heart_dataset)
+Q1_Cholesterol <- quantile(heart_dataset$Cholesterol, .25)
+Q3_Cholesterol <- quantile(heart_dataset$Cholesterol, .75)
+IQR_Cholesterol <- IQR(heart_dataset$Cholesterol)
+IQR_Cholesterol
+
+#heart_dataset$Outlier1 <- (heart_dataset$Cholesterol < (Q1_Cholesterol - 1.5*IQR_Cholesterol) | heart_dataset$Cholesterol > (Q3_Cholesterol + 1.5*IQR_Cholesterol))
+
+#avg1 = mean(heart_dataset$Cholesterol[!heart_dataset$Outlier1])
+
+#heart_dataset$Cholesterol[heart_dataset$Outlier1] = avg1
+
+heart_dataset <- subset(heart_dataset, heart_dataset$Cholesterol> (Q1_Cholesterol - 1.5*IQR_Cholesterol) & heart_dataset$Cholesterol< (Q3_Cholesterol + 1.5*IQR_Cholesterol))
+#boxplot(heart_dataset$Cholesterol,horizontal = TRUE)
+nrow(heart_dataset)
+```
+
+> Remove outliers of MaxHR
+
+```{r}
+Q1_MaxHR <- quantile(heart_dataset$MaxHR, .25)
+Q3_MaxHR <- quantile(heart_dataset$MaxHR, .75)
+IQR_MaxHR <- IQR(heart_dataset$MaxHR)
+IQR_MaxHR
+#heart_dataset <- subset(heart_dataset, heart_dataset$MaxHR> (Q1_MaxHR - 1.5*IQR_MaxHR) & heart_dataset$MaxHR< (Q3_MaxHR + 1.5*IQR_MaxHR))
+heart_dataset$Outlier <- (heart_dataset$MaxHR < (Q1_MaxHR - 1.5*IQR_MaxHR) | heart_dataset$MaxHR > (Q3_MaxHR + 1.5*IQR_MaxHR))
+
+avg = mean(heart_dataset$MaxHR[!heart_dataset$Outlier])
+
+heart_dataset$MaxHR[heart_dataset$Outlier] = avg
+
+boxplot(heart_dataset$MaxHR,horizontal = TRUE)
+
+```
+
+
+
+```{r}
+Q1_Oldpeak <- quantile(heart_dataset$Oldpeak, .25)
+Q3_Oldpeak <- quantile(heart_dataset$Oldpeak, .75)
+IQR_Oldpeak <- IQR(heart_dataset$Oldpeak)
+IQR_Oldpeak
+#heart_dataset <- subset(heart_dataset, heart_dataset$Oldpeak> (Q1_Oldpeak - 1.5*IQR_Oldpeak) & heart_dataset$Oldpeak< (Q3_Oldpeak + 1.5*IQR_Oldpeak))
+
+heart_dataset$Outlier <- (heart_dataset$Oldpeak < (Q1_Oldpeak - 1.5*IQR_Oldpeak) | heart_dataset$Oldpeak > (Q3_Oldpeak + 1.5*IQR_Oldpeak))
+
+avg = mean(heart_dataset$Oldpeak[!heart_dataset$Outlier])
+
+heart_dataset$Oldpeak[heart_dataset$Outlier] = avg
+
+boxplot(heart_dataset$Oldpeak,horizontal = TRUE)
+nrow(heart_dataset)
+```
+
+
+
+#### Histogram of resting BP
+
+```{r}
+hist(heart_dataset$RestingBP,main="HIstogram to show RestingBP",xlab="Blood pressure In mm or Hg",xlim=c(80,180),col="skyblue")
+```
+
+#### Histogram to show Max Heart Rate
+
+```{r}
+hist(heart_dataset$MaxHR, main="HIstogram to show Max Heart Rate",xlab="Heart Rate Value",xlim=c(60,202),col=c("pink","grey","skyblue"))
+```
+
+#### Histogram to show Cholesterol
+
+```{r}
+hist(heart_dataset$Cholesterol, main="HIstogram to show Cholesterol Level",xlab="Cholesterol Value")
+```
+
+
+#### Heart Disease between meales and Females
+
+> Heart Disease ratio between Males and Females 
+
+```{r}
+counts <- table(heart_dataset$HeartDisease, heart_dataset$Sex)
+counts
+barplot(counts, main="Haert Disease between Males and Females",
+  xlab="Gender", col=c("grey","skyblue"),
+  legend = rownames(counts), beside=TRUE, width = c(0.5,0.5))
+```
+
+#### Heart Disease based on Chest Pain Type 
+
+ > Which type of chest pain cause heart disease
+ 
+```{r}
+counts_chestpain <- table(heart_dataset$HeartDisease, heart_dataset$ChestPainType)
+counts_chestpain
+barplot(counts_chestpain, main="Heart Disease based on Chest Pain Type",
+  xlab="Chest Pain Type", col=c("pink","skyblue"),
+  legend = rownames(counts_chestpain), beside=TRUE, width = c(0.5,0.5))
+```
+
+### Correlation
+
+> Which attribute is more contributing in CVDs problem.
+
+```{r}
+subset <- heart_dataset [,c("HeartDisease", "RestingBP", "Cholesterol","FastingBS", "MaxHR", "Oldpeak")]
+plot(subset)
+cor(subset)
+heatmap(cor(subset), col = redblue(100), margins=c(8,6))
+```
+
+### Classification
+
+#### Linear regression
+
+> is MaxHR is really playing a good role in RestingBP ?? 
+
+```{r}
+modelBP <- lm(RestingBP ~ MaxHR, data = subset)
+summary(modelBP)
+```
+> is Cholesterol is really playing a good role in RestingBP ??
+
+```{r}
+Ch_modelBP <- lm(RestingBP ~ Cholesterol, data = subset)
+summary(Ch_modelBP)
+```
+
+> is FastingBS is really playing a good role in RestingBP ?? 
+
+```{r}
+Bs_modelBP <- lm(RestingBP ~ FastingBS, data = subset)
+summary(Bs_modelBP)
+```
+
+
+#### Logistic Regresion
+
+> Does age play significant role in HeartDisease
+
+```{r}
+# glm generalized linear regression
+glm_reg <- glm(HeartDisease ~ Age, data = heart_dataset, family = "binomial")
+glm_reg
+```
+
+```{r}
+range(heart_dataset$Age)
+
+x_axis <- seq(min(range(heart_dataset$Age)), max(range(heart_dataset$Age)),3)
+x_axis
+y_axis <- predict(glm_reg, list(Age=x_axis),type = "response")
+y_axis
+
+plot(heart_dataset$Age,heart_dataset$HeartDisease)
+plot(x_axis,y_axis)
+lines(x_axis,y_axis)
+```
+
+###     
+
+#### Splitting Dataset into Training and Test
+
+```{r}
+
+set.seed(17)
+heart_train_data_index<- sample(1:nrow(heart_dataset),0.6*nrow(heart_dataset))
+
+heart_training.set <- heart_dataset[heart_train_data_index,-c(2,7,9,11)]
+head(heart_training.set)
+heart_test.set <- heart_dataset[-heart_train_data_index,-c(2,7,9,11)]
+head(heart_test.set)
+
+```
+ 
+#### KNN model on Chest Pain
+
+```{r}
+knn_indep_train_set =heart_training.set[-2] # remove target variable from dataset
+knn_indep_train_set
+
+knn_indep_test_set = heart_test.set[-2]
+knn_indep_test_set
+
+knn_target_train_set = heart_training.set$ChestPainType
+head(knn_target_train_set)
+
+knn_target_test_set = heart_test.set$ChestPainType
+head(knn_target_test_set)
+
+
+knn_pred_target_test_set = knn(knn_indep_train_set,knn_indep_test_set, knn_target_train_set,k=5)
+knn_pred_target_test_set
+
+cnfMtrx <- table(knn_pred_target_test_set,knn_target_test_set)
+cnfMtrx
+
+plot_confusion_matrix(as_tibble(cnfMtrx),target_col = "knn_target_test_set", 
+                      prediction_col = "knn_pred_target_test_set",
+                      counts_col = "n")
+chestPainAccuracy <- sum(diag(cnfMtrx))/sum(cnfMtrx)
+chestPainAccuracy
+
+```
+
+
+#### Decision Tree model on Chest Pain
+
+>run decision tree model on training set
+
+```{r}
+#Error in trafo(data = data, numeric_trafo = numeric_trafo, factor_trafo = factor_trafo, : data class “character” is not supported
+
+heart_training.set$ChestPainType <- as.factor(heart_training.set$ChestPainType)
+head(heart_training.set)
+heart_training_ctree_model <- ctree(ChestPainType ~ ., data = heart_training.set)
+heart_training_ctree_model
+plot(heart_training_ctree_model, type="simple")
+```
+
+> prediction on test set
+
+```{r}
+heart_ctree_prediction <- predict(heart_training_ctree_model,heart_test.set)
+heart_ctree_prediction
+```
+
+```{r}
+ctreeMtrx <- table(heart_ctree_prediction,heart_test.set$ChestPainType)
+ctreeMtrx
+
+ctreeAccuracy <- sum(diag(ctreeMtrx))/sum(ctreeMtrx)
+ctreeAccuracy 
+
+```
+#### Random forest on Chest Pain
+
+```{r}
+
+random_forest_chestPain<-randomForest(ChestPainType~.,data=heart_training.set)
+plot(random_forest_chestPain)
+print(random_forest_chestPain)
+
+
+print(importance(random_forest_chestPain,type = 2))
+
+heartdataset_randomforest_prediction<-predict(random_forest_chestPain,heart_test.set)
+heartdataset_randomforest_prediction
+
+random_forest_Mtrx_chestPain <- table(heartdataset_randomforest_prediction,heart_test.set$ChestPainType)
+random_forest_Mtrx_chestPain
+random_forest_accuracy_chestPain <- sum(diag(random_forest_Mtrx_chestPain))/sum(random_forest_Mtrx_chestPain)
+random_forest_accuracy_chestPain
+
+```
+
+#### Model Accuracy comparision for chestpain Type
+
+```{r}
+Model <- c('KNN','Decision Tree','Random Forest')
+Accuracy <- c(chestPainAccuracy, ctreeAccuracy , random_forest_accuracy_chestPain)
+ChestPain_accuracy_table <- data.frame(Model, Accuracy)
+ChestPain_accuracy_table
+```
+
+
+#### KNN model on Gender
+
+```{r}
+#Predict Gender
+set.seed(17)
+heart_train_data_index1<- sample(1:nrow(heart_dataset),0.6*nrow(heart_dataset))
+head(heart_train_data_index1)
+
+heart_training.set1 <- heart_dataset[heart_train_data_index1,-c(3,7,9,11)]
+head(heart_training.set1)
+heart_test.set1 <- heart_dataset[-heart_train_data_index1,-c(3,7,9,11)]
+head(heart_test.set1)
+
+knn_indep_train_set1 =heart_training.set1[-2] # remove target variable from dataset
+knn_indep_train_set1
+
+knn_indep_test_set1 = heart_test.set1[-2]
+knn_indep_test_set1
+
+knn_target_train_set1 = heart_training.set1$Sex
+head(knn_target_train_set1)
+
+knn_target_test_set1 = heart_test.set1$Sex
+head(knn_target_test_set1)
+
+knn_pred_target_test_set1 = knn(knn_indep_train_set1,knn_indep_test_set1, knn_target_train_set1,k=3)
+knn_pred_target_test_set1
+
+mtrx <- table(knn_pred_target_test_set1,knn_target_test_set1)
+mtrx
+
+plot_confusion_matrix(as_tibble(mtrx),target_col = "knn_target_test_set1", 
+                      prediction_col = "knn_pred_target_test_set1",
+                      counts_col = "n")
+
+genderAccuracy <- sum(diag(mtrx))/sum(mtrx)
+genderAccuracy
+```
+
+
+#### Decision tree model on gender
+
+```{r}
+heart_training.set1$Sex <- as.factor(heart_training.set1$Sex)
+#head(heart_training.set)
+heart_training_ctree_model_gender <- ctree(Sex ~ ., data = heart_training.set1)
+heart_training_ctree_model_gender
+plot(heart_training_ctree_model_gender, type="simple")
+
+# Prediction on test set
+heart_ctree_prediction_gender <- predict(heart_training_ctree_model_gender,heart_test.set1)
+heart_ctree_prediction_gender
+
+ctreeMtrxGender <- table(heart_ctree_prediction_gender,heart_test.set1$Sex)
+ctreeMtrxGender
+ctreeAccuracyGender <- sum(diag(ctreeMtrxGender))/sum(ctreeMtrxGender)
+ctreeAccuracyGender 
+```
+
+#### Random forest in Gender
+
+```{r}
+
+random_forest_gender<-randomForest(Sex~.,data=heart_training.set1)
+plot(random_forest_gender)
+print(random_forest_gender)
+
+print(importance(random_forest_gender,type = 2))
+
+heartdataset_randomforest_prediction_gender<-predict(random_forest_gender,heart_test.set1)
+heartdataset_randomforest_prediction_gender
+
+random_forest_Mtrx_gender <- table(heartdataset_randomforest_prediction_gender,heart_test.set1$Sex)
+random_forest_Mtrx_gender
+random_forest_accuracy_gender <- sum(diag(random_forest_Mtrx_gender))/sum(random_forest_Mtrx_gender)
+random_forest_accuracy_gender 
+```
+
+#### Model Accuracy comparision for chestpain Type
+
+```{r}
+Model <- c('KNN','Decision Tree','Random Forest')
+Accuracy <- c(genderAccuracy, ctreeAccuracyGender , random_forest_accuracy_gender)
+Gender_accuracy_table <- data.frame(Model, Accuracy)
+Gender_accuracy_table
+```
+
